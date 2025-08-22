@@ -1,9 +1,22 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import SidebarButton from '../ui/SidebarButton';
 
-function Sidebar() {
+interface SidebarProps {
+  onClose?: () => void;
+}
+
+function Sidebar({ onClose }: SidebarProps) {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleExploreClick = () => {
+    if (location.pathname === '/explore') {
+      onClose && onClose();
+      return;
+    }
+    navigate('/explore');
+  };
 
   return (
     <div style={{
@@ -17,7 +30,7 @@ function Sidebar() {
       color: 'var(--color-text)',
       zIndex: 2
     }}>
-      <SidebarButton onClick={() => navigate('/explore')}>
+      <SidebarButton onClick={handleExploreClick}>
         Explore Functionalities
       </SidebarButton>
     </div>
