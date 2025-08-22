@@ -1,6 +1,10 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import SidebarButton from '../ui/SidebarButton';
 
 function Sidebar() {
+  const navigate = useNavigate();
+
   return (
     <div style={{
       width: '250px',
@@ -13,8 +17,9 @@ function Sidebar() {
       color: 'var(--color-text)',
       zIndex: 2
     }}>
-      <h2>Sidebar</h2>
-      {/* Add sidebar content here */}
+      <SidebarButton onClick={() => navigate('/explore')}>
+        Explore Functionalities
+      </SidebarButton>
     </div>
   );
 }

@@ -10,8 +10,8 @@ function HomePage() {
       style={{
         minHeight: "100vh",
         width: "100%",
-        backgroundColor: "var(--color-secondary)",
-        color: "var(--color-text)",
+        backgroundColor: "var(--color-background)",
+        color: "var(--color-text-secondary)",
         position: "relative",
       }}
     >

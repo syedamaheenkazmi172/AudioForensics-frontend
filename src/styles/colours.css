@@ -2,6 +2,7 @@
   /* Brand Colors */
   --color-primary: #0A0E27;
   --color-secondary: #112240;
+  --color-background: #FAF9F6;
 
   --color-accent: #1D9BF0;
   --color-accent-light: #3ABFF8; /* Lighter blue for hover states */
@@ -10,4 +11,5 @@
   --color-warning: #F59E0B;
   --color-error: #EF4444;
   --color-text: #F8FAFC;
+  --color-text-secondary: #000000;
 }
