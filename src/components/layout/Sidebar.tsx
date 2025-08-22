@@ -18,6 +18,30 @@ function Sidebar({ onClose }: SidebarProps) {
     navigate('/explore');
   };
 
+  const handleAddCaseClick = () => {
+    if (location.pathname === '/add-case') {
+      onClose && onClose();
+      return;
+    }
+    navigate('/add-case');
+  };
+
+  const handleReviewCaseClick = () => {
+    if (location.pathname === '/review-case') {
+      onClose && onClose();
+      return;
+    }
+    navigate('/review-case');
+  };
+
+  const handlePdfReportClick = () => {
+    if (location.pathname === '/pdf-report') {
+      onClose && onClose();
+      return;
+    }
+    navigate('/pdf-report');
+  };
+
   return (
     <div style={{
       width: '250px',
@@ -32,6 +56,15 @@ function Sidebar({ onClose }: SidebarProps) {
     }}>
       <SidebarButton onClick={handleExploreClick}>
         Explore Functionalities
+      </SidebarButton>
+      <SidebarButton onClick={handleAddCaseClick}>
+        Add New Case
+      </SidebarButton>
+      <SidebarButton onClick={handleReviewCaseClick}>
+        Review Old Case
+      </SidebarButton>
+      <SidebarButton onClick={handlePdfReportClick}>
+        PDF Report
       </SidebarButton>
     </div>
   );
