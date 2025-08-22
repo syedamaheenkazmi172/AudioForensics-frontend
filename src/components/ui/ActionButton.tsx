@@ -12,7 +12,7 @@ function ActionButton({ label, onClick, disabled }: ActionButtonProps) {
 			onClick={onClick}
 			disabled={disabled}
 			style={{
-				width: '105%',
+				width: '100%',
 				display: 'block',
 				padding: '1.5rem',
 				fontSize: '1.4rem',
