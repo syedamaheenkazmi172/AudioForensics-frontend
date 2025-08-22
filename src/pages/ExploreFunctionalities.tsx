@@ -81,7 +81,7 @@ function ExploreFunctionalities() {
           <ActionButton label="Transcribe" onClick={() => {}} />
           <ActionButton label="Sentiment Analysis" onClick={() => {}} />
           <ActionButton label="Gender Detection" onClick={() => {}} />
-          <ActionButton label="Diarization" onClick={() => {}} />
+          <ActionButton label="Speaker Diarization" onClick={() => {}} />
           <ActionButton label="Temporal Inconsistency Detection" onClick={() => {}} />
           <ActionButton label="Metadata" onClick={() => {}} />
         </div>
