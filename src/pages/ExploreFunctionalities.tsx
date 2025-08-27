@@ -8,6 +8,8 @@ import { analyzeSentiment } from "../services/sentiment";
 import { detectGender } from "../services/gender";
 import { detectTemporalInconsistencies } from "../services/temporal";
 import { extractMetadata } from "../services/metadata";
+import { diarizeAudio, DiarizationResponse, DiarizationSegment } from "../services/diarization";
+import { API_BASE_URL } from "../services/apiClient";
 
  type Status = 'idle' | 'loading' | 'success' | 'error';
 
@@ -46,6 +48,16 @@ function ExploreFunctionalities() {
   const [metadataStatus, setMetadataStatus] = useState<Status>('idle');
   const [metadataError, setMetadataError] = useState<string | null>(null);
   const [metadataData, setMetadataData] = useState<any | null>(null);
+
+  // Diarization state
+  const [showDiarization, setShowDiarization] = useState(false);
+  const [diarizationStatus, setDiarizationStatus] = useState<Status>('idle');
+  const [diarizationError, setDiarizationError] = useState<string | null>(null);
+  const [diarizationData, setDiarizationData] = useState<DiarizationResponse | null>(null);
+  const [segmentTranscripts, setSegmentTranscripts] = useState<Record<number, string | null>>({});
+  const [segmentSentiments, setSegmentSentiments] = useState<Record<number, string | null>>({});
+  const [segmentGenders, setSegmentGenders] = useState<Record<number, string | null>>({});
+  const [segmentLoading, setSegmentLoading] = useState<Record<string, boolean>>({});
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -139,6 +151,74 @@ function ExploreFunctionalities() {
     } catch (err: any) {
       setMetadataError(err?.message ?? 'Request failed');
       setMetadataStatus('error');
+    }
+  };
+
+  const openDiarization = async () => {
+    setShowDiarization(true);
+    setDiarizationError(null);
+    setDiarizationData(null);
+    setDiarizationStatus('idle');
+    if (!selectedFile) return;
+    try {
+      setDiarizationStatus('loading');
+      const res = await diarizeAudio(selectedFile);
+      setDiarizationData(res);
+      setDiarizationStatus('success');
+    } catch (err: any) {
+      setDiarizationError(err?.message ?? 'Request failed');
+      setDiarizationStatus('error');
+    }
+  };
+
+  const fetchSegmentAsFile = async (segment: DiarizationSegment): Promise<File> => {
+    const url = segment.file_url.startsWith('http') ? segment.file_url : `${API_BASE_URL}${segment.file_url}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to download segment');
+    const blob = await response.blob();
+    const ext = 'wav';
+    return new File([blob], `${segment.speaker}_${segment.start.toFixed(2)}-${segment.end.toFixed(2)}.${ext}`);
+  };
+
+  const transcribeSegment = async (index: number, segment: DiarizationSegment) => {
+    const key = `t-${index}`;
+    setSegmentLoading((s) => ({ ...s, [key]: true }));
+    try {
+      const file = await fetchSegmentAsFile(segment);
+      const res = await transcribeAudio(file);
+      setSegmentTranscripts((m) => ({ ...m, [index]: res.transcription }));
+    } catch (e: any) {
+      setSegmentTranscripts((m) => ({ ...m, [index]: `Error: ${e?.message ?? 'failed'}` }));
+    } finally {
+      setSegmentLoading((s) => ({ ...s, [key]: false }));
+    }
+  };
+
+  const sentimentSegment = async (index: number, segment: DiarizationSegment) => {
+    const key = `s-${index}`;
+    setSegmentLoading((s) => ({ ...s, [key]: true }));
+    try {
+      const file = await fetchSegmentAsFile(segment);
+      const res = await analyzeSentiment(file);
+      setSegmentSentiments((m) => ({ ...m, [index]: res.sentiment }));
+    } catch (e: any) {
+      setSegmentSentiments((m) => ({ ...m, [index]: `Error: ${e?.message ?? 'failed'}` }));
+    } finally {
+      setSegmentLoading((s) => ({ ...s, [key]: false }));
+    }
+  };
+
+  const genderSegment = async (index: number, segment: DiarizationSegment) => {
+    const key = `g-${index}`;
+    setSegmentLoading((s) => ({ ...s, [key]: true }));
+    try {
+      const file = await fetchSegmentAsFile(segment);
+      const res = await detectGender(file);
+      setSegmentGenders((m) => ({ ...m, [index]: res.gender }));
+    } catch (e: any) {
+      setSegmentGenders((m) => ({ ...m, [index]: `Error: ${e?.message ?? 'failed'}` }));
+    } finally {
+      setSegmentLoading((s) => ({ ...s, [key]: false }));
     }
   };
 
@@ -258,8 +338,62 @@ function ExploreFunctionalities() {
             <ActionButton label="Gender Detection" onClick={openGender} />
           )}
 
-          {/* Diarization - disabled for now */}
-          <ActionButton label="Speaker Diarization" onClick={() => {}} disabled />
+          {/* Diarization */}
+          {showDiarization ? (
+            <ActionResultCard title="Speaker Diarization" status={diarizationStatus}>
+              {diarizationStatus === 'error' && <div>{diarizationError}</div>}
+              {diarizationStatus !== 'error' && (
+                <div>
+                  {selectedFile ? (
+                    diarizationStatus === 'loading' ? 'Running diarization…' : (
+                      diarizationData ? (
+                        <div>
+                          <div style={{ marginBottom: '0.5rem' }}>
+                            <strong>Estimated speakers:</strong> {diarizationData.estimated_speakers}
+                          </div>
+                          <div style={{ display: 'grid', gap: '0.75rem' }}>
+                            {diarizationData.segments.map((seg, idx) => (
+                              <div key={`${seg.speaker}-${idx}`} style={{ border: '1px solid var(--color-border)', borderRadius: '0.5rem', padding: '0.75rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                  <div>
+                                    <strong>{seg.speaker}</strong> · {seg.start.toFixed(2)}s - {seg.end.toFixed(2)}s
+                                  </div>
+                                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <button onClick={() => transcribeSegment(idx, seg)} disabled={segmentLoading[`t-${idx}`]} style={{ padding: '0.35rem 0.6rem', borderRadius: '0.375rem', border: 'none', background: 'var(--color-primary)', color: 'var(--color-text)', cursor: 'pointer' }}>
+                                      {segmentLoading[`t-${idx}`] ? 'Transcribing…' : 'Transcribe'}
+                                    </button>
+                                    <button onClick={() => sentimentSegment(idx, seg)} disabled={segmentLoading[`s-${idx}`]} style={{ padding: '0.35rem 0.6rem', borderRadius: '0.375rem', border: 'none', background: 'var(--color-primary)', color: 'var(--color-text)', cursor: 'pointer' }}>
+                                      {segmentLoading[`s-${idx}`] ? 'Analyzing…' : 'Sentiment'}
+                                    </button>
+                                    <button onClick={() => genderSegment(idx, seg)} disabled={segmentLoading[`g-${idx}`]} style={{ padding: '0.35rem 0.6rem', borderRadius: '0.375rem', border: 'none', background: 'var(--color-primary)', color: 'var(--color-text)', cursor: 'pointer' }}>
+                                      {segmentLoading[`g-${idx}`] ? 'Detecting…' : 'Gender'}
+                                    </button>
+                                  </div>
+                                </div>
+                                <div style={{ fontSize: '0.95rem', display: 'grid', gap: '0.25rem' }}>
+                                  {segmentTranscripts[idx] && (
+                                    <div><strong>Transcript:</strong> <span style={{ whiteSpace: 'pre-wrap' }}>{segmentTranscripts[idx]}</span></div>
+                                  )}
+                                  {segmentSentiments[idx] && (
+                                    <div><strong>Sentiment:</strong> {segmentSentiments[idx]}</div>
+                                  )}
+                                  {segmentGenders[idx] && (
+                                    <div><strong>Gender:</strong> {segmentGenders[idx]}</div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : ''
+                    )
+                  ) : "Please upload an audio file first."}
+                </div>
+              )}
+            </ActionResultCard>
+          ) : (
+            <ActionButton label="Speaker Diarization" onClick={openDiarization} />
+          )}
 
           {/* Temporal */}
           {showTemporal ? (
