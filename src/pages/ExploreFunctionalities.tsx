@@ -248,6 +248,18 @@ function ExploreFunctionalities() {
           marginInlineStart: showSidebar ? undefined : "auto",
         }}
       >
+        {/* Note about explore functionalities being just for fun */}
+        <div style={{ 
+          marginBottom: "2rem", 
+          padding: "1rem", 
+          backgroundColor: "var(--color-primary)", 
+          borderRadius: "0.5rem",
+          textAlign: "center",
+          color: "var(--color-text)"
+        }}>
+          <strong>Note:</strong> This page is just for fun and testing purposes. 
+          If you want to save and review your analysis later, please use the "Add New Case" page instead.
+        </div>
 
         <div style={{ margin: "1.5rem 0 2rem", textAlign: "center" }}>
           <input
