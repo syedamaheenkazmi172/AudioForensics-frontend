@@ -1,21 +1,25 @@
 import React, { useRef, useState } from "react";
 import Header from "../components/layout/Header";
 import Sidebar from "../components/layout/Sidebar";
-import { createCase } from "../services/cases";
+import { createCase, CreateCaseResponse } from "../services/cases";
 
 function AddNewCase() {
   const [showSidebar, setShowSidebar] = useState(false);
   const [caseName, setCaseName] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>("idle");
   const [error, setError] = useState<string | null>(null);
-  const [createdCase, setCreatedCase] = useState<{ id: string; name: string; created_at: string } | null>(null);
+  const [createdCase, setCreatedCase] = useState<CreateCaseResponse | null>(null);
+  const [analysisProgress, setAnalysisProgress] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setCreatedCase(null);
+    setAnalysisProgress("");
+    
     if (!selectedFile) {
       setError("Please upload an audio file.");
       return;
@@ -24,14 +28,32 @@ function AddNewCase() {
       setError("Please enter a case name.");
       return;
     }
+    
     try {
       setStatus('loading');
-      const res = await createCase({ file: selectedFile, name: caseName });
+      setAnalysisProgress("Creating case and uploading file...");
+      
+      const res = await createCase({ 
+        file: selectedFile, 
+        name: caseName,
+        notes: notes.trim() || undefined
+      });
+      
       setCreatedCase(res);
       setStatus('success');
+      setAnalysisProgress("Case created successfully with all analyses completed!");
+      
+      // Reset form
+      setCaseName("");
+      setNotes("");
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     } catch (e: any) {
       setError(e?.message ?? 'Failed to create case');
       setStatus('error');
+      setAnalysisProgress("");
     }
   };
 
@@ -62,12 +84,59 @@ function AddNewCase() {
         }}
       >
         <h1 style={{ marginBottom: "1.5rem", color: "var(--color-text)" }}>Add New Case</h1>
+        
         {status === 'error' && (
-          <div style={{ marginBottom: '1rem', color: 'tomato' }}>{error}</div>
+          <div style={{ 
+            marginBottom: '1rem', 
+            color: 'tomato',
+            padding: '0.75rem',
+            backgroundColor: 'rgba(255, 99, 71, 0.1)',
+            border: '1px solid tomato',
+            borderRadius: '0.5rem'
+          }}>
+            {error}
+          </div>
         )}
+        
         {status === 'success' && createdCase && (
-          <div style={{ marginBottom: '1rem', color: 'limegreen' }}>
-            Case created: <strong>{createdCase.name}</strong> (ID: {createdCase.id})
+          <div style={{ 
+            marginBottom: '1rem', 
+            color: 'limegreen',
+            padding: '0.75rem',
+            backgroundColor: 'rgba(50, 205, 50, 0.1)',
+            border: '1px solid limegreen',
+            borderRadius: '0.5rem'
+          }}>
+            <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>✅ Case Created Successfully!</div>
+            <div><strong>Name:</strong> {createdCase.name}</div>
+            <div><strong>ID:</strong> {createdCase.id}</div>
+            <div><strong>Created:</strong> {new Date(createdCase.created_at).toLocaleString()}</div>
+            <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', opacity: 0.8 }}>
+              All analyses (transcription, sentiment, gender detection, metadata, temporal inconsistency, and diarization) have been completed and stored in the database.
+            </div>
+          </div>
+        )}
+        
+        {status === 'loading' && (
+          <div style={{ 
+            marginBottom: '1rem', 
+            color: 'var(--color-primary)',
+            padding: '0.75rem',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            border: '1px solid var(--color-primary)',
+            borderRadius: '0.5rem'
+          }}>
+            <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>🔄 Processing Case...</div>
+            <div style={{ fontSize: '0.9rem' }}>{analysisProgress}</div>
+            <div style={{ 
+              marginTop: '0.5rem', 
+              fontSize: '0.8rem', 
+              opacity: 0.7 
+            }}>
+              This may take a few minutes as we perform comprehensive audio analysis including:
+              transcription, sentiment analysis, gender detection, metadata extraction, 
+              temporal inconsistency detection, and speaker diarization.
+            </div>
           </div>
         )}
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: "1.5rem" }}>
@@ -91,6 +160,30 @@ function AddNewCase() {
                 color: "var(--color-text-secondary)",
               }}
               placeholder="Enter case name"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="notes" style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600, color: "var(--color-text)" }}>
+              Notes (Optional)
+            </label>
+            <textarea
+              id="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              style={{
+                width: "100%",
+                padding: "0.75rem",
+                fontSize: "1rem",
+                border: "2px solid var(--color-primary)",
+                borderRadius: "0.5rem",
+                backgroundColor: "var(--color-background)",
+                color: "var(--color-text-secondary)",
+                resize: "vertical",
+                minHeight: "80px",
+              }}
+              placeholder="Add any additional notes about this case..."
             />
           </div>
 

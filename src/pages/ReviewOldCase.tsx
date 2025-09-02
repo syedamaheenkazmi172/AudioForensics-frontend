@@ -1,50 +1,53 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Header from "../components/layout/Header";
 import Sidebar from "../components/layout/Sidebar";
+import { getAllCases, Case, deleteCase } from "../services/cases";
+import { useNavigate } from "react-router-dom";
 
 function ReviewOldCase() {
   const [showSidebar, setShowSidebar] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("all");
+  const [cases, setCases] = useState<Case[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
-  // Mock data for demonstration
-  const mockCases = [
-    {
-      id: 1,
-      name: "Audio Forensics Case #001",
-      type: "Audio Forensics",
-      investigator: "John Doe",
-      priority: "high",
-      status: "completed",
-      createdAt: "2024-01-15",
-      lastUpdated: "2024-01-20"
-    },
-    {
-      id: 2,
-      name: "Digital Evidence Analysis #002",
-      type: "Digital Evidence",
-      investigator: "Jane Smith",
-      priority: "medium",
-      status: "in-progress",
-      createdAt: "2024-01-18",
-      lastUpdated: "2024-01-22"
-    },
-    {
-      id: 3,
-      name: "Voice Authentication #003",
-      type: "Voice Analysis",
-      investigator: "Mike Johnson",
-      priority: "low",
-      status: "pending",
-      createdAt: "2024-01-20",
-      lastUpdated: "2024-01-21"
+  useEffect(() => {
+    loadCases();
+  }, []);
+
+  const loadCases = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const casesData = await getAllCases();
+      setCases(casesData);
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to load cases');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const filteredCases = mockCases.filter(case_ => {
+  const handleDeleteCase = async (caseId: string) => {
+    if (!window.confirm('Are you sure you want to delete this case? This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      await deleteCase(caseId);
+      await loadCases(); // Reload cases
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to delete case');
+    }
+  };
+
+  const filteredCases = cases.filter(case_ => {
     const matchesSearch = case_.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         case_.investigator.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = selectedFilter === "all" || case_.status === selectedFilter;
+                         case_.original_filename.toLowerCase().includes(searchQuery.toLowerCase());
+    // For now, all cases are considered "completed" since they have all analyses
+    const matchesFilter = selectedFilter === "all" || selectedFilter === "completed";
     return matchesSearch && matchesFilter;
   });
 
@@ -74,143 +77,176 @@ function ReviewOldCase() {
           marginInlineStart: showSidebar ? undefined : "auto",
         }}
       >
-        <h1 style={{ marginBottom: "1.5rem", color: "var(--color-text)" }}>Review Old Cases</h1>
+        <h1 style={{ marginBottom: "1.5rem", color: "var(--color-text)" }}>Review Cases</h1>
         
-        {/* Search and Filter Controls */}
-        <div style={{ display: "grid", gap: "1rem", marginBottom: "2rem" }}>
-          <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search cases by name or investigator..."
-              style={{
-                flex: 1,
-                padding: "0.75rem",
-                fontSize: "1rem",
-                border: "2px solid var(--color-primary)",
-                borderRadius: "0.5rem",
-                backgroundColor: "var(--color-background)",
-                color: "var(--color-text)",
-              }}
-            />
-            <select
-              value={selectedFilter}
-              onChange={(e) => setSelectedFilter(e.target.value)}
-              style={{
-                padding: "0.75rem",
-                fontSize: "1rem",
-                border: "2px solid var(--color-primary)",
-                borderRadius: "0.5rem",
-                backgroundColor: "var(--color-background)",
-                color: "var(--color-text)",
-                minWidth: "150px",
-              }}
-            >
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="in-progress">In Progress</option>
-              <option value="completed">Completed</option>
-            </select>
+        {error && (
+          <div style={{ 
+            marginBottom: '1rem', 
+            color: 'tomato',
+            padding: '0.75rem',
+            backgroundColor: 'rgba(255, 99, 71, 0.1)',
+            border: '1px solid tomato',
+            borderRadius: '0.5rem'
+          }}>
+            {error}
           </div>
-        </div>
-
-        {/* Cases List */}
-        <div style={{ display: "grid", gap: "1rem" }}>
-          {filteredCases.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "2rem", color: "var(--color-text-secondary)" }}>
-              No cases found matching your search criteria.
+        )}
+        
+        {loading ? (
+          <div style={{ textAlign: "center", padding: "2rem" }}>
+            Loading cases...
+          </div>
+        ) : (
+          <>
+            {/* Search and Filter Controls */}
+            <div style={{ display: "grid", gap: "1rem", marginBottom: "2rem" }}>
+              <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search cases by name or filename..."
+                  style={{
+                    flex: 1,
+                    padding: "0.75rem",
+                    fontSize: "1rem",
+                    border: "2px solid var(--color-primary)",
+                    borderRadius: "0.5rem",
+                    backgroundColor: "var(--color-background)",
+                    color: "var(--color-text)",
+                  }}
+                />
+                <select
+                  value={selectedFilter}
+                  onChange={(e) => setSelectedFilter(e.target.value)}
+                  style={{
+                    padding: "0.75rem",
+                    fontSize: "1rem",
+                    border: "2px solid var(--color-primary)",
+                    borderRadius: "0.5rem",
+                    backgroundColor: "var(--color-background)",
+                    color: "var(--color-text)",
+                    minWidth: "150px",
+                  }}
+                >
+                  <option value="all">All Cases</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </div>
             </div>
-          ) : (
-            filteredCases.map(case_ => (
-              <div
-                key={case_.id}
-                style={{
-                  border: "2px solid var(--color-primary)",
-                  borderRadius: "0.5rem",
-                  padding: "1.5rem",
-                  backgroundColor: "var(--color-background)",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
-                  <div>
-                    <h3 style={{ margin: "0 0 0.5rem 0", color: "var(--color-text)", fontSize: "1.2rem" }}>
-                      {case_.name}
-                    </h3>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.5rem", fontSize: "0.9rem" }}>
-                      <div><strong>Type:</strong> {case_.type}</div>
-                      <div><strong>Investigator:</strong> {case_.investigator}</div>
-                      <div><strong>Priority:</strong> 
-                        <span style={{ 
-                          color: case_.priority === 'urgent' ? '#ef4444' : 
-                                 case_.priority === 'high' ? '#f97316' : 
-                                 case_.priority === 'medium' ? '#eab308' : '#22c55e',
-                          marginLeft: "0.5rem"
-                        }}>
-                          {case_.priority.toUpperCase()}
-                        </span>
+
+            {/* Cases List */}
+            <div style={{ display: "grid", gap: "1rem" }}>
+              {filteredCases.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "2rem", color: "var(--color-text-secondary)" }}>
+                  {cases.length === 0 ? "No cases found. Create your first case to get started!" : "No cases found matching your search criteria."}
+                </div>
+              ) : (
+                filteredCases.map(case_ => (
+                  <div
+                    key={case_.id}
+                    style={{
+                      border: "2px solid var(--color-primary)",
+                      borderRadius: "0.5rem",
+                      padding: "1.5rem",
+                      backgroundColor: "var(--color-background)",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
+                      <div>
+                        <h3 style={{ margin: "0 0 0.5rem 0", color: "var(--color-text)", fontSize: "1.2rem" }}>
+                          {case_.name}
+                        </h3>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.5rem", fontSize: "0.9rem" }}>
+                          <div><strong>File:</strong> {case_.original_filename}</div>
+                          <div><strong>Status:</strong> 
+                            <span style={{ 
+                              color: '#22c55e',
+                              marginLeft: "0.5rem"
+                            }}>
+                              COMPLETED
+                            </span>
+                          </div>
+                          {case_.notes && (
+                            <div style={{ gridColumn: "1 / -1" }}>
+                              <strong>Notes:</strong> {case_.notes}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div><strong>Status:</strong> 
-                        <span style={{ 
-                          color: case_.status === 'completed' ? '#22c55e' : 
-                                 case_.status === 'in-progress' ? '#eab308' : '#6b7280',
-                          marginLeft: "0.5rem"
-                        }}>
-                          {case_.status.replace('-', ' ').toUpperCase()}
-                        </span>
+                      <div style={{ textAlign: "right", fontSize: "0.85rem", color: "var(--color-text-secondary)" }}>
+                        <div>Created: {new Date(case_.created_at).toLocaleDateString()}</div>
+                        <div>Updated: {new Date(case_.updated_at).toLocaleDateString()}</div>
                       </div>
                     </div>
+                    
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <button
+                        onClick={() => navigate(`/case/${case_.id}`)}
+                        style={{
+                          padding: "0.5rem 1rem",
+                          fontSize: "0.9rem",
+                          border: "1px solid var(--color-primary)",
+                          borderRadius: "0.35rem",
+                          backgroundColor: "var(--color-primary)",
+                          color: "var(--color-text)",
+                          cursor: "pointer",
+                        }}
+                        onMouseOver={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--color-secondary)';
+                        }}
+                        onMouseOut={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--color-primary)';
+                        }}
+                      >
+                        View Details
+                      </button>
+                      <button
+                        style={{
+                          padding: "0.5rem 1rem",
+                          fontSize: "0.9rem",
+                          border: "1px solid var(--color-primary)",
+                          borderRadius: "0.35rem",
+                          backgroundColor: "transparent",
+                          color: "var(--color-text)",
+                          cursor: "pointer",
+                        }}
+                        onMouseOver={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--color-secondary)';
+                        }}
+                        onMouseOut={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
+                        }}
+                      >
+                        Generate PDF
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCase(case_.id)}
+                        style={{
+                          padding: "0.5rem 1rem",
+                          fontSize: "0.9rem",
+                          border: "1px solid #ef4444",
+                          borderRadius: "0.35rem",
+                          backgroundColor: "transparent",
+                          color: "#ef4444",
+                          cursor: "pointer",
+                        }}
+                        onMouseOver={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                        }}
+                        onMouseOut={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
-                  <div style={{ textAlign: "right", fontSize: "0.85rem", color: "var(--color-text-secondary)" }}>
-                    <div>Created: {case_.createdAt}</div>
-                    <div>Updated: {case_.lastUpdated}</div>
-                  </div>
-                </div>
-                
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button
-                    style={{
-                      padding: "0.5rem 1rem",
-                      fontSize: "0.9rem",
-                      border: "1px solid var(--color-primary)",
-                      borderRadius: "0.35rem",
-                      backgroundColor: "transparent",
-                      color: "var(--color-text)",
-                      cursor: "pointer",
-                    }}
-                    onMouseOver={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--color-secondary)';
-                    }}
-                    onMouseOut={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
-                    }}
-                  >
-                    View Details
-                  </button>
-                  <button
-                    style={{
-                      padding: "0.5rem 1rem",
-                      fontSize: "0.9rem",
-                      border: "1px solid var(--color-primary)",
-                      borderRadius: "0.35rem",
-                      backgroundColor: "transparent",
-                      color: "var(--color-text)",
-                      cursor: "pointer",
-                    }}
-                    onMouseOver={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--color-secondary)';
-                    }}
-                    onMouseOut={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
-                    }}
-                  >
-                    Generate PDF
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+                ))
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
